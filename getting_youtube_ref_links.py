@@ -1,9 +1,10 @@
 import json
 import requests
 import re
+from tqdm import tqdm
 
-API_KEY = ""
-CHANNEL_ID = ""
+API_KEY = "yourkey"
+CHANNEL_ID = "UCptRK95GEDXvJGOQIFg50fg" # Igor Link
 channel_peers = []
 
 
@@ -111,9 +112,24 @@ def get_all_video_links(videos: dict) -> dict:
     return link_data
 
 
-# изменяет уже существующий дикт links, добавляет хоста
-def get_all_link_hosts():
-    pass
+
+def get_all_link_hosts(links_json: dict):
+    """
+    Add domain of link to dict of links
+    :param links_json: dict with link id and info about the link
+    """
+    regex = re.compile("//([www.]?[a-z\-]*\.?[a-z\-]*\.?[a-z\-]*)")
+    dummy_links = ["bit.ly", "clc.to", "u.to", "cutt.ly"]
+    for link_id, data in tqdm(links_json.items()):
+        if any(substring in data["link"] for substring in dummy_links):
+            try:
+                url = requests.get(data["link"]).url
+            except requests.exceptions.ConnectionError as e:
+                print(e)
+        else:
+            url = data["link"]
+        domain = regex.findall(url)[0]
+        links_json[link_id]["domain"] = domain
 
 
 def dump_data_to_csv():
@@ -130,4 +146,10 @@ if __name__ == '__main__':
     #     link_data = get_all_video_links(data)
     #     with open("link_data.json", "w", encoding="utf-8") as linkfile:
     #         json.dump(link_data, linkfile, indent=4, ensure_ascii=False)
+
+    # with open("link_data.json", "r", encoding="utf-8") as jsonfile:
+    #     links = json.load(jsonfile)
+    #     get_all_link_hosts(links)
+    #     with open("link_data_domains.json", "w", encoding="utf-8") as linkfile:
+    #         json.dump(links, linkfile, indent=4, ensure_ascii=False)
     pass
