@@ -4,8 +4,17 @@ import re
 from tqdm import tqdm
 
 API_KEY = "yourkey"
-CHANNEL_ID = "UCptRK95GEDXvJGOQIFg50fg" # Igor Link
+CHANNEL_ID = "UCptRK95GEDXvJGOQIFg50fg"  # Igor Link
 channel_peers = []
+
+# Google authentication
+CREDENTIALS_FILE = 'credentials.json'
+credentials = ServiceAccountCredentials.from_json_keyfile_name(
+    CREDENTIALS_FILE, ['https://www.googleapis.com/auth/spreadsheets',
+                       'https://www.googleapis.com/auth/drive'])
+httpAuth = credentials.authorize(httplib2.Http())
+service = discovery.build('sheets', 'v4', http = httpAuth)
+spreadsheetId = 'yourspreadsheet'
 
 
 def get_all_video_data():
@@ -113,12 +122,12 @@ def get_all_video_links(videos: dict) -> dict:
 
 
 
-def get_all_link_hosts(links_json: dict):
+def get_all_link_hosts(links_json: dict) -> None:
     """
     Add domain of link to dict of links
     :param links_json: dict with link id and info about the link
     """
-    regex = re.compile("//([www.]?[a-z\-]*\.?[a-z\-]*\.?[a-z\-]*)")
+    regex = re.compile("//([www.]?[a-z0-9\-]*\.?[a-z0-9\-]*\.?[a-z0-9\-]*)")
     dummy_links = ["bit.ly", "clc.to", "u.to", "cutt.ly"]
     for link_id, data in tqdm(links_json.items()):
         if any(substring in data["link"] for substring in dummy_links):
@@ -132,8 +141,32 @@ def get_all_link_hosts(links_json: dict):
         links_json[link_id]["domain"] = domain
 
 
-def dump_data_to_csv():
-    pass
+def dump_data_to_spreadsheet(links_json: dict) -> None:
+    global service
+    result: List[list] = []
+
+    fields = ["link", "publishedAt", "viewCount", "likeCount", "domain"]
+    # TODO разобраться с тегами
+
+    for link_id, data in links_json.items():
+        link_data = []
+        for field in fields:
+            try:
+                link_data.append(data[field])
+            except KeyError as e:
+                link_data.append(None)
+        result.extend([link_data])
+
+
+    service.spreadsheets().values().batchUpdate(spreadsheetId=spreadsheetId,
+                                                body={
+                                                    "valueInputOption": "USER_ENTERED",
+                                                    "data": [
+                                                        {"range": "A1:G2000",
+                                                         "majorDimension": "ROWS",
+                                                         "values": result}
+                                                    ]
+                                                }).execute()
 
 
 if __name__ == '__main__':
@@ -152,4 +185,7 @@ if __name__ == '__main__':
     #     get_all_link_hosts(links)
     #     with open("link_data_domains.json", "w", encoding="utf-8") as linkfile:
     #         json.dump(links, linkfile, indent=4, ensure_ascii=False)
-    pass
+
+    with open("link_data_domains.json", "r", encoding="utf-8") as jsonfile:
+        links = json.load(jsonfile)
+        dump_data_to_spreadsheet(links)
