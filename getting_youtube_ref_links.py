@@ -3,9 +3,12 @@ import requests
 import re
 from tqdm import tqdm
 
+import httplib2
+from apiclient import discovery
+from oauth2client.service_account import ServiceAccountCredentials
+
 API_KEY = "yourkey"
 CHANNEL_ID = "UCptRK95GEDXvJGOQIFg50fg"  # Igor Link
-channel_peers = []
 
 # Google authentication
 CREDENTIALS_FILE = 'credentials.json'
@@ -14,7 +17,7 @@ credentials = ServiceAccountCredentials.from_json_keyfile_name(
                        'https://www.googleapis.com/auth/drive'])
 httpAuth = credentials.authorize(httplib2.Http())
 service = discovery.build('sheets', 'v4', http = httpAuth)
-spreadsheetId = 'yourspreadsheet'
+spreadsheetId = 'yourspreadsheetid'
 
 
 def get_all_video_data():
@@ -128,7 +131,8 @@ def get_all_link_hosts(links_json: dict) -> None:
     :param links_json: dict with link id and info about the link
     """
     regex = re.compile("//([www.]?[a-z0-9\-]*\.?[a-z0-9\-]*\.?[a-z0-9\-]*)")
-    dummy_links = ["bit.ly", "clc.to", "u.to", "cutt.ly"]
+    dummy_links = ["bit.ly", "clc.to", "u.to", "cutt.ly", "clck.ru", "clcr.me", "clik.cc", "clc.am",
+                   "tiny.cc"]
     for link_id, data in tqdm(links_json.items()):
         if any(substring in data["link"] for substring in dummy_links):
             try:
@@ -145,14 +149,16 @@ def dump_data_to_spreadsheet(links_json: dict) -> None:
     global service
     result: List[list] = []
 
-    fields = ["link", "publishedAt", "viewCount", "likeCount", "domain"]
-    # TODO разобраться с тегами
+    fields = ["link", "publishedAt", "viewCount", "likeCount", "domain", "tags"]
 
     for link_id, data in links_json.items():
         link_data = []
         for field in fields:
             try:
-                link_data.append(data[field])
+                if field == "tags":
+                    link_data.append(",".join(data[field]))
+                else:
+                    link_data.append(data[field])
             except KeyError as e:
                 link_data.append(None)
         result.extend([link_data])
