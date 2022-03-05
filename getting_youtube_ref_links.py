@@ -10,7 +10,8 @@ from oauth2client.service_account import ServiceAccountCredentials
 API_KEY = "yourkey"
 CHANNEL_ID = "UCptRK95GEDXvJGOQIFg50fg"  # Igor Link
 
-# Google authentication
+# ---- Google authentication ---- #
+# credentials.json can be acquired in google spreadsheets api
 CREDENTIALS_FILE = 'credentials.json'
 credentials = ServiceAccountCredentials.from_json_keyfile_name(
     CREDENTIALS_FILE, ['https://www.googleapis.com/auth/spreadsheets',
@@ -146,6 +147,10 @@ def get_all_link_hosts(links_json: dict) -> None:
 
 
 def dump_data_to_spreadsheet(links_json: dict) -> None:
+    """
+    Dump data from dict to spreadsheet that you connected
+    :param links_json: dict with all link data
+    """
     global service
     result: List[list] = []
 
@@ -155,14 +160,13 @@ def dump_data_to_spreadsheet(links_json: dict) -> None:
         link_data = []
         for field in fields:
             try:
-                if field == "tags":
+                if field == "tags":  # google spreadsheets can't store arrays
                     link_data.append(",".join(data[field]))
                 else:
                     link_data.append(data[field])
             except KeyError as e:
                 link_data.append(None)
         result.extend([link_data])
-
 
     service.spreadsheets().values().batchUpdate(spreadsheetId=spreadsheetId,
                                                 body={
@@ -192,6 +196,11 @@ if __name__ == '__main__':
     #     with open("link_data_domains.json", "w", encoding="utf-8") as linkfile:
     #         json.dump(links, linkfile, indent=4, ensure_ascii=False)
 
-    with open("link_data_domains.json", "r", encoding="utf-8") as jsonfile:
-        links = json.load(jsonfile)
-        dump_data_to_spreadsheet(links)
+    # with open("link_data_domains.json", "r", encoding="utf-8") as jsonfile:
+    #     links = json.load(jsonfile)
+    #     dump_data_to_spreadsheet(links)
+
+    video_data = get_all_video_data()
+    link_data = get_all_video_links(video_data)
+    get_all_link_hosts(link_data)
+    dump_data_to_spreadsheet(link_data)
